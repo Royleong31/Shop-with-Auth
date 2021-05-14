@@ -10,8 +10,13 @@
         <% if (errorMessage) { %> 
             <div class="user-message user-message--error"><%= errorMessage %></div>
         <% } %> 
+        
+        <form class="login-form" action="/signup" method="POST">
 
-        <form class="login-form" action="/login" method="POST">
+            <div class="form-control">
+                <label for="name">Name</label>
+                <input type="text" name="name" id="name">
+            </div>
 
             <div class="form-control">
                 <label for="email">Email</label>
@@ -23,8 +28,13 @@
                 <input type="password" name="password" id="password">
             </div>
 
+            <div class="form-control">
+                <label for="confirmPassword">Confirm Password</label>
+                <input type="password" name="confirmPassword" id="confirmPassword">
+            </div>
+
             <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-            <button class="btn" type="submit">Login</button>
+            <button class="btn" type="submit">Sign Up</button>
         </form>
     </main>
 <%- include('../includes/end.ejs') %>
