@@ -9,7 +9,10 @@ router.get("/login", authController.getLogin);
 router.post(
   "/login",
   [
-    body("email", "Please enter a valid email").trim().normalizeEmail().isEmail(),
+    body("email", "Please enter a valid email")
+      .trim()
+      .normalizeEmail()
+      .isEmail(),
 
     body(
       "password",
@@ -77,7 +80,7 @@ router.post(
 router.get("/reset", authController.getReset);
 router.post("/reset", authController.postReset);
 
-router.get("/reset/:token", authController.getNewPassword);
+router.get("/reset/:token", authController.getNewPassword); // TODO: implement check if confirmPassword matches password
 router.post("/newPw", authController.postNewPassword);
 
 module.exports = router;

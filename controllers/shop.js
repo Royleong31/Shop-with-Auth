@@ -5,7 +5,7 @@ const path = require("path");
 const PDFDocument = require("pdfkit");
 
 exports.getProducts = (req, res, next) => {
-  Product.find()
+  Product.find() // ?: Find all products
     .then((products) => {
       console.log(products);
       res.render("shop/product-list", {
@@ -47,7 +47,7 @@ exports.getIndex = (req, res, next) => {
         prods: products,
         pageTitle: "Shop",
         path: "/",
-        // csrfToken: req.csrfToken(),
+        // csrfToken: req.csrfToken(), // ?: No need is it is applied to all requests in app.js
       });
     })
     .catch((err) => {
@@ -67,7 +67,8 @@ exports.getCart = (req, res, next) => {
     });
   }
 
-  req.user
+// TODO: Figure out how this works!! 
+  req.user // ?: req.user is the current user object
     .populate("cart.items.productId")
     .execPopulate()
     .then((user) => {
@@ -168,7 +169,7 @@ exports.getOrders = (req, res, next) => {
     });
   }
 
-  Order.find({ "user.userId": req.user._id })
+  Order.find({ "user.userId": req.user._id }) // ?: Custom predicate
     .then((orders) => {
       res.render("shop/orders", {
         path: "/orders",
@@ -206,7 +207,7 @@ exports.getInvoice = (req, res, next) => {
       pdfDoc.pipe(fs.createWriteStream(invoicePath));
       pdfDoc.pipe(res);
 
-      pdfDoc.fontSize(26).text("Invoice", {
+      pdfDoc.fontSize(26).text("Invoice", { // ?: Writes onto the file
         underline: true,
       });
       pdfDoc.text("--------------");

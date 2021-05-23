@@ -52,6 +52,7 @@ exports.getEditProduct = (req, res, next) => {
 };
 
 exports.getProducts = (req, res, next) => {
+  // ?: Find all products that are have this user's id
   Product.find({ userId: req.user._id })
     // .select('title price -_id')
     // .populate('userId', 'name')
@@ -79,8 +80,10 @@ exports.postAddProduct = (req, res, next) => {
   const image = req.file;
   const price = req.body.price;
   const description = req.body.description;
-  const errors = validationResult(req);
+  const errors = validationResult(req); // ?:errors come from express-validator in the routes
 
+  // ?: Since the image cannot be checked in routes, it is checked here.
+  // ?: If image === undefined,
   if (!image) {
     console.log("User put in an invalid file type");
     return res.status(422).render("admin/edit-product", {
@@ -100,7 +103,7 @@ exports.postAddProduct = (req, res, next) => {
   console.log("Image: ");
   console.log(image);
 
-  if (!errors.isEmpty()) {
+  if (!errors.isEmpty()) { // ?: If there is an error
     const errorFields = errors.array().map((error) => error.param);
     console.log(errorFields);
 
@@ -108,8 +111,8 @@ exports.postAddProduct = (req, res, next) => {
       pageTitle: "Add Product",
       path: "/admin/edit-product",
       editing: false,
-      validationErrors: errorFields,
-      errorMessage: errors.array()[0].msg,
+      validationErrors: errorFields, // ?: Send the erroneous fields so that they can be highlighted to user
+      errorMessage: errors.array()[0].msg, // ?: Use the error message of the first error
       product: {
         title: title,
         price: price,
@@ -118,13 +121,13 @@ exports.postAddProduct = (req, res, next) => {
     });
   }
 
-  const imageUrl = image.path;
+  const imageUrl = image.path; // ?: Gets file location
 
   const product = new Product({
     title: title,
     price: price,
     description: description,
-    imageUrl: imageUrl,
+    imageUrl: imageUrl, // ?: Only the file location is stored in the database, not the actual image
     userId: req.session.user,
   });
 
@@ -187,7 +190,7 @@ exports.postEditProduct = (req, res, next) => {
     });
   }
 
-  Product.findById(prodId)
+  Product.findById(prodId) // ?: If the user tries to access a product that he did not create (unauthorised access)
     .then((product) => {
       if (product.userId.toString() !== req.user._id.toString()) {
         res.redirect("/");
@@ -202,7 +205,7 @@ exports.postEditProduct = (req, res, next) => {
         fileHelper.deleteFile(product.imageUrl); // ?: Delete imageUrl if the product's image was edited
         product.imageUrl = image.path;
       }
-      return product.save();
+      return product.save(); // ?: returns a promise, so that page will only redirect when product was saved successfully
     })
     .then((result) => {
       console.log("UPDATED PRODUCT!");

@@ -64,10 +64,10 @@ exports.postLogin = (req, res, next) => {
       }
 
       bcrypt
-        .compare(password, user.password)
+        .compare(password, user.password) // ?: Compares hash of inputted password to hash of user's password
         .then((doMatch) => {
           if (doMatch) {
-            req.session.isLoggedIn = true;
+            req.session.isLoggedIn = true; // ?: Store the loggedIn and user details in the session
             req.session.user = user;
 
             return req.session.save((err) => {
@@ -76,7 +76,7 @@ exports.postLogin = (req, res, next) => {
             });
           }
 
-          return res.status(422).render("auth/login", {
+          return res.status(422).render("auth/login", { // ?: If there was no match, return an error to the user
             path: "/login",
             pageTitle: "Login",
             errorMessage: "Invalid password",
@@ -137,7 +137,7 @@ exports.postSignup = (req, res, next) => {
   }
 
   bcrypt
-    .hash(password, 12)
+    .hash(password, 12) // ?: 12 rounds of hashing
     .then((hashedPassword) => {
       const user = new User({
         name: name,
@@ -190,22 +190,23 @@ exports.postReset = (req, res, next) => {
   const email = req.body.email;
   console.log(`Email: ${email}`);
 
-  crypto.randomBytes(32, (err, buffer) => {
+  crypto.randomBytes(32, (err, buffer) => { // ?: Generate a random string to be used as an auth token
     if (err) {
       console.log(err);
       return res.redirect("/reset");
     }
 
-    const token = buffer.toString("hex");
+    const token = buffer.toString("hex"); // ?: Convert the string into hex
 
     User.findOne({ email: email })
       .then((user) => {
         if (!user) {
           req.flash("error", "No account with that email found.");
           res.redirect("/reset");
-          throw "No account with that email found";
+          throw "No account with that email found"; // !: 
         }
 
+        // ?: Set details to be stored in the user doc
         user.resetToken = token;
         user.resetTokenExpiration = Date.now() + 3600000;
 
@@ -243,11 +244,11 @@ exports.getNewPassword = (req, res, next) => {
 
   User.findOne({
     resetToken: token,
-    resetTokenExpiration: { $gt: Date.now() },
+    resetTokenExpiration: { $gt: Date.now() }, // ?: Check if the expiry date is after the current time
   })
     .then((user) => {
       if (!user) {
-        req.flash("error", "There was an error, Please try again");
+        req.flash("error", "There was an error, Please try again"); // ?: If there is no such token or it has expired, redirect back to login
         res.redirect("/login");
         throw "There was an error, Please try again";
       }
@@ -283,7 +284,7 @@ exports.postNewPassword = (req, res, next) => {
     .then((user) => {
       if (!user) {
         req.flash("error", "No account with that email found.");
-        res.redirect("/reset");
+        res.redirect("/reset"); // !:
         throw "No account with that email found";
       }
 
@@ -292,7 +293,7 @@ exports.postNewPassword = (req, res, next) => {
     })
     .then((hashedPassword) => {
       resetUser.password = hashedPassword;
-      resetUser.resetToken = undefined;
+      resetUser.resetToken = undefined; // ?: Can be set to undefined or null
       resetUser.resetTokenExpiration = undefined;
 
       resetUser.save();

@@ -36,27 +36,29 @@ const userSchema = new Schema({
   },
 });
 
-userSchema.methods.addToCart = function (product) {
+userSchema.methods.addToCart = function (product) { // ?: Cannot use arrow functions in order to preserve 'this' as the user object
   const cartProductIndex = this.cart.items.findIndex((cp) => {
     return cp.productId.toString() === product._id.toString();
   });
   let newQuantity = 1;
   const updatedCartItems = [...this.cart.items];
 
-  if (cartProductIndex >= 0) {
+  if (cartProductIndex >= 0) { // ?: If the item is already in the cart
     newQuantity = this.cart.items[cartProductIndex].quantity + 1;
     updatedCartItems[cartProductIndex].quantity = newQuantity;
-  } else {
+  } else { // ?: If item is not already in the cart
     updatedCartItems.push({
       productId: product._id,
       quantity: newQuantity,
     });
   }
+
   const updatedCart = {
     items: updatedCartItems,
   };
+
   this.cart = updatedCart;
-  return this.save();
+  return this.save(); // ?:returns a promise
 };
 
 userSchema.methods.removeFromCart = function (productId) {

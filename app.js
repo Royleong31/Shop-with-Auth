@@ -16,20 +16,21 @@ const User = require("./models/user");
 
 const app = express();
 
+// ?: Store the active sessions in mongodb collection
 const store = new MongoDBStore({
   uri: process.env.MONGO_ADDRESS,
   collection: "sessions",
 });
 
-const csrfProtection = csrf();
+const csrfProtection = csrf(); // ?: Helps to prevent cross reference scripting attacks from other tabs
 
 const fileStorage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, "images");
   },
   filename: (req, file, cb) => {
-    // ?: By including new DateTime, we can ensure that the file name is unique
-    cb(null, uuidv4() + "=" + file.originalname);
+    // ?: By including new DateTime or uuid, we can ensure that the file name is unique
+    cb(null, uuidv4() + "=" + file.originalname); // ?: 2nd argument creates the file name
   },
 });
 
@@ -49,16 +50,18 @@ const fileFilter = (req, file, cb) => {
 app.set("view engine", "ejs");
 app.set("views", "views");
 
+// ?: Sets the routes that are in the routes folder
 const adminRoutes = require("./routes/admin");
 const shopRoutes = require("./routes/shop");
 const authRoutes = require("./routes/auth");
 
-app.use(bodyParser.urlencoded({ extended: false }));
+// !: Middlewares
+app.use(bodyParser.urlencoded({ extended: false })); // ?: bodyParser parses post requests
 app.use(
   multer({ storage: fileStorage, fileFilter: fileFilter }).single("image")
 ); // ?: image is the name of the file that is passed
 
-app.use(express.static(path.join(__dirname, "public")));
+app.use(express.static(path.join(__dirname, "public"))); // ?: public will be found from the root directory
 app.use('/images', express.static(path.join(__dirname, "images"))); // ?: First argument tells express that when a link is to /images, serve the files from the images folder. Otherwise, it will assume that the files are from the root directory
 
 app.use(
@@ -98,11 +101,11 @@ app.use((req, res, next) => {
     });
 });
 
-app.use("/admin", adminRoutes);
+app.use("/admin", adminRoutes); // ?: url will need to begin with /admin
 app.use(shopRoutes);
 app.use(authRoutes);
 
-app.get("/500", errorController.get500);
+app.get("/500", errorController.get500); // ?: Probably not necesssary as errors are handled by error handler below
 
 app.use(errorController.get404); // ?: This needs to be the last one as it handles all other routes that were not redirected earlier
 
@@ -115,6 +118,8 @@ app.use((error, req, res, next) => {
   });
 });
 
+// !: Connection to mongo and localhost
+// ?: Connect to the mongo db server before connecting to local host
 mongoose
   .connect(process.env.MONGO_ADDRESS, {
     useNewUrlParser: true,
