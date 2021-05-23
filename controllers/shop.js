@@ -1,5 +1,8 @@
 const Product = require("../models/product");
 const Order = require("../models/order");
+const fs = require("fs");
+const path = require("path");
+const PDFDocument = require("pdfkit");
 
 exports.getProducts = (req, res, next) => {
   Product.find()
@@ -13,6 +16,9 @@ exports.getProducts = (req, res, next) => {
     })
     .catch((err) => {
       console.log(err);
+      const error = new Error(err);
+      error.httpStatusCode = 500;
+      return next(error);
     });
 };
 
@@ -26,7 +32,12 @@ exports.getProduct = (req, res, next) => {
         path: "/products",
       });
     })
-    .catch((err) => console.log(err));
+    .catch((err) => {
+      console.log(err);
+      const error = new Error(err);
+      error.httpStatusCode = 500;
+      return next(error);
+    });
 };
 
 exports.getIndex = (req, res, next) => {
@@ -36,11 +47,14 @@ exports.getIndex = (req, res, next) => {
         prods: products,
         pageTitle: "Shop",
         path: "/",
-        csrfToken: req.csrfToken(),
+        // csrfToken: req.csrfToken(),
       });
     })
     .catch((err) => {
       console.log(err);
+      const error = new Error(err);
+      error.httpStatusCode = 500;
+      return next(error);
     });
 };
 
@@ -65,7 +79,12 @@ exports.getCart = (req, res, next) => {
         products: products,
       });
     })
-    .catch((err) => console.log(err));
+    .catch((err) => {
+      console.log(err);
+      const error = new Error(err);
+      error.httpStatusCode = 500;
+      return next(error);
+    });
 };
 
 exports.postCart = (req, res, next) => {
@@ -81,7 +100,10 @@ exports.postCart = (req, res, next) => {
       res.redirect("/cart");
     })
     .catch((err) => {
-      console.error(err);
+      console.log(err);
+      const error = new Error(err);
+      error.httpStatusCode = 500;
+      return next(error);
     });
 };
 
@@ -92,7 +114,12 @@ exports.postCartDeleteProduct = (req, res, next) => {
     .then((result) => {
       res.redirect("/cart");
     })
-    .catch((err) => console.log(err));
+    .catch((err) => {
+      console.log(err);
+      const error = new Error(err);
+      error.httpStatusCode = 500;
+      return next(error);
+    });
 };
 
 exports.postOrder = (req, res, next) => {
@@ -124,7 +151,12 @@ exports.postOrder = (req, res, next) => {
       return req.user.clearCart();
     })
     .then(() => res.redirect("/orders"))
-    .catch((err) => console.error(err));
+    .catch((err) => {
+      console.log(err);
+      const error = new Error(err);
+      error.httpStatusCode = 500;
+      return next(error);
+    });
 };
 
 exports.getOrders = (req, res, next) => {
@@ -144,5 +176,75 @@ exports.getOrders = (req, res, next) => {
         orders: orders,
       });
     })
-    .catch((err) => console.log(err));
+    .catch((err) => {
+      console.log(err);
+      const error = new Error(err);
+      error.httpStatusCode = 500;
+      return next(error);
+    });
+};
+
+exports.getInvoice = (req, res, next) => {
+  const orderId = req.params.orderId;
+  Order.findById(orderId)
+    .then((order) => {
+      if (!order) {
+        return next(new Error("No order found"));
+      }
+
+      if (order.user.userId.toString() !== req.user._id.toString()) {
+        throw new Error("Unauthorised!"); // ?: By throwing error, it will be caught in the catch then next(err) will be called
+      }
+
+      const invoiceName = `invoice-${orderId}.pdf`;
+      const invoicePath = path.join("data", "invoices", invoiceName);
+      let totalPrice = 0;
+
+      const pdfDoc = new PDFDocument(); // ?: Creates a stream
+      res.setHeader("Content-Type", "application/pdf"); // ?: Sets file type
+      res.setHeader("Content-Disposition", `inline; filename=${invoiceName}`); // ?: inline: shows up in browser; filename=: file name of downloaded file
+      pdfDoc.pipe(fs.createWriteStream(invoicePath));
+      pdfDoc.pipe(res);
+
+      pdfDoc.fontSize(26).text("Invoice", {
+        underline: true,
+      });
+      pdfDoc.text("--------------");
+
+      order.products.forEach((prod) => {
+        const price = prod.quantity * prod.productData.price;
+        totalPrice += price;
+        
+        pdfDoc
+          .fontSize(14)
+          .text(`${prod.productData.title} x $${prod.quantity} = $${price}`);
+      });
+
+      pdfDoc.text("-------");
+      pdfDoc.fontSize(20).text(`Total Price: $${totalPrice}`);
+      pdfDoc.end(); // ?: Closes file and stream. Proceeds to send file
+
+      // ?: Serving files via streams is better as the server does not need to store the whole file in memory. It only needs to forward it to the browser
+      // const file = fs.createReadStream(invoicePath);
+      // res.setHeader("Content-Type", "application/pdf");
+      // res.setHeader("Content-Disposition", `inline; filename=${invoiceName}`);
+      // file.pipe(res);
+
+      // ?: Reading files and then sending to user can be slow especially if the file is large or there are many users
+      // fs.readFile(invoicePath, (err, data) => {
+      //   if (err) {
+      //     return next(err); // ?: creates an error that will be handled by the error handler function
+      //   }
+
+      //   res.setHeader("Content-Type", "application/pdf");
+      //   res.setHeader("Content-Disposition", `inline; filename=${invoiceName}`); // ?: inline opens the attachment directly in browser
+      //   // res.setHeader("Content-Disposition", `attachment; filename=${invoiceName}`); // ?: attachment downloads the file with the correct file name
+      //   res.send(data);
+      //   res.end();
+      // });
+    })
+    .catch((err) => {
+      console.error(err);
+      next(err);
+    });
 };

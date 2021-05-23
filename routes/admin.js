@@ -19,7 +19,7 @@ router.post(
       .trim()
       .isString()
       .isLength({ min: 3 }),
-    body("imageUrl", "Please enter a valid URL").trim().isURL(),
+    // body("imageUrl", "Please enter a valid URL").trim().isURL(),
     body("price", "Please enter a positive number").trim().isFloat(),
     body("description", "Description needs to be at least 5 characters long")
       .trim()
@@ -36,7 +36,6 @@ router.post(
       .trim()
       .isString()
       .isLength({ min: 3 }),
-    body("imageUrl", "Please enter a valid URL").trim().isURL(),
     body("price", "Please enter a positive number").trim().isFloat(),
     body("description", "Description needs to be at least 5 characters long")
       .trim()

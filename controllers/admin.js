@@ -1,6 +1,9 @@
 const Product = require("../models/product");
+const mongoose = require("mongoose");
 const { validationResult } = require("express-validator");
+const fileHelper = require("../util/file");
 
+// !: GET ROUTES
 exports.getAddProduct = (req, res, next) => {
   res.render("admin/edit-product", {
     pageTitle: "Add Product",
@@ -10,7 +13,6 @@ exports.getAddProduct = (req, res, next) => {
     validationErrors: [],
     product: {
       title: "",
-      imageUrl: "",
       price: "",
       description: "",
     },
@@ -41,15 +43,62 @@ exports.getEditProduct = (req, res, next) => {
         validationErrors: [],
       });
     })
-    .catch((err) => console.log(err));
+    .catch((err) => {
+      console.log(err);
+      const error = new Error(err);
+      error.httpStatusCode = 500;
+      return next(error);
+    });
 };
+
+exports.getProducts = (req, res, next) => {
+  Product.find({ userId: req.user._id })
+    // .select('title price -_id')
+    // .populate('userId', 'name')
+    // Product.find()
+    .then((products) => {
+      console.log(products);
+      res.render("admin/products", {
+        prods: products,
+        pageTitle: "Admin Products",
+        path: "/admin/products",
+      });
+    })
+    .catch((err) => {
+      console.log(err);
+      const error = new Error(err);
+      error.httpStatusCode = 500;
+      return next(error);
+    });
+};
+
+// !: POST ROUTES
 
 exports.postAddProduct = (req, res, next) => {
   const title = req.body.title;
-  const imageUrl = req.body.imageUrl;
+  const image = req.file;
   const price = req.body.price;
   const description = req.body.description;
   const errors = validationResult(req);
+
+  if (!image) {
+    console.log("User put in an invalid file type");
+    return res.status(422).render("admin/edit-product", {
+      pageTitle: "Add Product",
+      path: "/admin/edit-product",
+      editing: false,
+      validationErrors: [],
+      errorMessage: "Attached file is not an image",
+      product: {
+        title: title,
+        price: price,
+        description: description,
+      },
+    });
+  }
+
+  console.log("Image: ");
+  console.log(image);
 
   if (!errors.isEmpty()) {
     const errorFields = errors.array().map((error) => error.param);
@@ -63,12 +112,13 @@ exports.postAddProduct = (req, res, next) => {
       errorMessage: errors.array()[0].msg,
       product: {
         title: title,
-        imageUrl: imageUrl,
         price: price,
         description: description,
       },
     });
   }
+
+  const imageUrl = image.path;
 
   const product = new Product({
     title: title,
@@ -87,6 +137,26 @@ exports.postAddProduct = (req, res, next) => {
     })
     .catch((err) => {
       console.log(err);
+      const error = new Error(err);
+      error.httpStatusCode = 500;
+      return next(error);
+
+      // res.redirect("/500"); // ?: One way of handling errors is to redirect to a specific error page
+
+      // ?: This can be used if the problem is localised. Just re-render the same page with error message
+      // return res.status(500).render("admin/edit-product", {
+      //   pageTitle: "Add Product",
+      //   path: "/admin/edit-product",
+      //   editing: false,
+      //   validationErrors: [],
+      //   errorMessage: "Database operation failed, please try again",
+      //   product: {
+      //     title: title,
+      //     image: image,
+      //     price: price,
+      //     description: description,
+      //   },
+      // });
     });
 };
 
@@ -94,7 +164,7 @@ exports.postEditProduct = (req, res, next) => {
   const prodId = req.body.productId;
   const updatedTitle = req.body.title;
   const updatedPrice = req.body.price;
-  const updatedImageUrl = req.body.imageUrl;
+  const image = req.file;
   const updatedDesc = req.body.description;
   const errors = validationResult(req);
 
@@ -110,7 +180,6 @@ exports.postEditProduct = (req, res, next) => {
       errorMessage: errors.array()[0].msg,
       product: {
         title: updatedTitle,
-        imageUrl: updatedImageUrl,
         price: updatedPrice,
         description: updatedDesc,
         _id: prodId,
@@ -128,39 +197,43 @@ exports.postEditProduct = (req, res, next) => {
       product.title = updatedTitle;
       product.price = updatedPrice;
       product.description = updatedDesc;
-      product.imageUrl = updatedImageUrl;
+      // TODO: Currently, if user puts in an invalid file, no error message will be given; the old image will just be used as before
+      if (image) {
+        fileHelper.deleteFile(product.imageUrl); // ?: Delete imageUrl if the product's image was edited
+        product.imageUrl = image.path;
+      }
       return product.save();
     })
     .then((result) => {
       console.log("UPDATED PRODUCT!");
       res.redirect("/admin/products");
     })
-    .catch((err) => console.log(err));
-};
-
-exports.getProducts = (req, res, next) => {
-  Product.find({ userId: req.user._id })
-    // .select('title price -_id')
-    // .populate('userId', 'name')
-    // Product.find()
-    .then((products) => {
-      console.log(products);
-      res.render("admin/products", {
-        prods: products,
-        pageTitle: "Admin Products",
-        path: "/admin/products",
-      });
-    })
-    .catch((err) => console.log(err));
+    .catch((err) => {
+      console.log(err);
+      const error = new Error(err);
+      error.httpStatusCode = 500;
+      return next(error);
+    });
 };
 
 exports.postDeleteProduct = (req, res, next) => {
   const prodId = req.body.productId;
 
-  Product.deleteOne({ _id: prodId, userId: req.user._id })
+  Product.findById(prodId)
+    .then((product) => {
+      if (!product) {
+        return next(new Error("Product was not found"));
+      }
+      fileHelper.deleteFile(product.imageUrl); // ?: Delete imageUrl if the product's image was edited
+
+      return Product.deleteOne({ _id: prodId, userId: req.user._id }); // ?: Delete one is returned as a promise to ensure that deleting the product occurs after the product's file has been deleted. This is to prevent race condition whereby the database doc is deleted before the product is found by Product.findById
+    })
     .then(() => {
       console.log("DESTROYED PRODUCT");
       res.redirect("/admin/products");
     })
-    .catch((err) => console.log(err));
+    .catch((err) => {
+      console.error(err);
+      next(error);
+    });
 };

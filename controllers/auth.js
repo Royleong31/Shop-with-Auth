@@ -40,7 +40,7 @@ exports.postLogin = (req, res, next) => {
     return res.status(422).render("auth/login", {
       path: "/login",
       pageTitle: "Login",
-      errorMessage: errors.array()[0].msg,
+      errorMessage: errors.array()[0].msg, // ?: The first message
       validationErrors: errorFields,
       oldInput: { email: email, password: password },
     });
@@ -49,6 +49,7 @@ exports.postLogin = (req, res, next) => {
   User.findOne({ email: email })
     .then((user) => {
       console.log(user);
+
       if (!user) {
         console.log("Invalid email or password");
         req.flash("error", "Invalid email");
@@ -59,10 +60,9 @@ exports.postLogin = (req, res, next) => {
           errorMessage: "Invalid email",
           validationErrors: ["email"],
           oldInput: { email: email, password: password },
-
-          // TODO: oldInput
         });
       }
+
       bcrypt
         .compare(password, user.password)
         .then((doMatch) => {
@@ -84,13 +84,19 @@ exports.postLogin = (req, res, next) => {
             oldInput: { email: email, password: password },
           });
         })
+
         .catch((err) => {
           console.error(err);
           res.redirect("/login");
         });
       // ? Redirect after session has been saved
     })
-    .catch((err) => console.log(err));
+    .catch((err) => {
+      console.log(err);
+      const error = new Error(err);
+      error.httpStatusCode = 500;
+      return next(error);
+    });
 };
 // !: Login
 
@@ -115,7 +121,7 @@ exports.postSignup = (req, res, next) => {
   if (!errors.isEmpty()) {
     const errorFields = errors.array().map((error) => error.param);
     console.log(errorFields);
-    console.log(`====================================================`);
+
     return res.status(422).render("auth/signup", {
       path: "/signup",
       pageTitle: "Sign Up",
@@ -155,7 +161,12 @@ exports.postSignup = (req, res, next) => {
     .then(() => {
       console.log(`An email was sent to ${email}`);
     })
-    .catch((err) => console.error(err));
+    .catch((err) => {
+      console.log(err);
+      const error = new Error(err);
+      error.httpStatusCode = 500;
+      return next(error);
+    });
 };
 // !: Signup
 
@@ -216,7 +227,12 @@ exports.postReset = (req, res, next) => {
         });
       })
       .then((message) => console.log(message))
-      .catch((err) => console.error(err));
+      .catch((err) => {
+        console.log(err);
+        const error = new Error(err);
+        error.httpStatusCode = 500;
+        return next(error);
+      });
   });
 };
 // !: Reset Password
@@ -244,7 +260,12 @@ exports.getNewPassword = (req, res, next) => {
         passwordToken: token,
       });
     })
-    .catch((err) => console.error(err));
+    .catch((err) => {
+      console.log(err);
+      const error = new Error(err);
+      error.httpStatusCode = 500;
+      return next(error);
+    });
 };
 
 exports.postNewPassword = (req, res, next) => {
@@ -279,6 +300,11 @@ exports.postNewPassword = (req, res, next) => {
     .then((result) => {
       res.redirect("/login");
     })
-    .catch((err) => console.error(err));
+    .catch((err) => {
+      console.log(err);
+      const error = new Error(err);
+      error.httpStatusCode = 500;
+      return next(error);
+    });
 };
 // !: New Password

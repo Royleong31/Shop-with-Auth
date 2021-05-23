@@ -1,4 +1,3 @@
-const path = require("path");
 const { check, body } = require("express-validator");
 const express = require("express");
 const router = express.Router();
