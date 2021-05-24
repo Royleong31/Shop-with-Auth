@@ -45,7 +45,8 @@ router.post(
   adminController.postEditProduct
 );
 
-router.post("/delete-product", isAuth, adminController.postDeleteProduct);
+// ?: Browser only knows get and post, but we can also use other verbs such as delete, patch etc.
+router.delete("/product/:productId", isAuth, adminController.deleteProduct);
 
 router.get("/edit-product/:productId", isAuth, adminController.getEditProduct);
 

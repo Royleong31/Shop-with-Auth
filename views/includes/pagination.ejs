@@ -1,0 +1,19 @@
+<section class="pagination">
+	<% if (currentPage !== 1 ) { %>
+		<a href="?page=1">1</a>
+	<% } %>
+
+	<% if (hasPreviousPage && previousPage > 1) { %>
+		<a href="?page=<%= previousPage %> "><</a>  <!-- if href has a '/' in front, it will return to root directory. if not, it will append onto the url -->
+	<% } %>
+
+	<a href="?page=<%= currentPage %> " class="active"><%= currentPage %></a>
+
+	<% if (hasNextPage && nextPage < lastPage) { %>
+		<a href="?page=<%= nextPage %> ">></a>
+	<% } %>
+
+	<% if (currentPage !== lastPage) { %> 
+		<a href="?page=<%= lastPage %> "><%= lastPage %></a>
+	<% } %> 
+</section>

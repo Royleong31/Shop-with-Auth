@@ -1,23 +1,47 @@
+require("dotenv").config();
 const Product = require("../models/product");
 const Order = require("../models/order");
 const fs = require("fs");
 const path = require("path");
 const PDFDocument = require("pdfkit");
+const stripe = require("stripe")(process.env.STRIPE_SK); // !: Never expose the STRIPE Secret Key
+
+const ITEMS_PER_PAGE = 3;
 
 exports.getProducts = (req, res, next) => {
-  Product.find() // ?: Find all products
+  const page = +req.query.page || 1; // ?: if there is no query page param, then set page = 1
+  let totalItems;
+
+  Product.find()
+    .countDocuments() // ?: Returns the number of documents
+    .then((numProducts) => {
+      totalItems = numProducts;
+
+      // ?: Returns a promise, so number of documents is first counted and then fetched
+      return (
+        Product.find()
+          // ?: In SQL, skip and limit are replaced by OFFSET and LIMIT respectively. Read more on sequelize docs
+          // ?: If on page 1, get first 2 items (skip 0). If on page 2, get next 2 items (skip 2) ...
+          .skip((page - 1) * ITEMS_PER_PAGE)
+          .limit(ITEMS_PER_PAGE)
+      );
+    })
     .then((products) => {
-      console.log(products);
-      res.render("shop/product-list", {
+      res.render("shop/index", {
         prods: products,
         pageTitle: "All Products",
         path: "/products",
+        currentPage: page,
+        hasNextPage: ITEMS_PER_PAGE * page < totalItems,
+        hasPreviousPage: page > 1,
+        nextPage: page + 1,
+        previousPage: page - 1,
+        lastPage: Math.ceil(totalItems / ITEMS_PER_PAGE),
+        // csrfToken: req.csrfToken(), // ?: No need is it is applied to all requests in app.js
       });
     })
     .catch((err) => {
-      console.log(err);
-      const error = new Error(err);
-      error.httpStatusCode = 500;
+      console.log("Error" + err);
       return next(error);
     });
 };
@@ -41,33 +65,45 @@ exports.getProduct = (req, res, next) => {
 };
 
 exports.getIndex = (req, res, next) => {
+  const page = +req.query.page || 1; // ?: if there is no query page param, then set page = 1
+  let totalItems;
+
   Product.find()
+    .countDocuments() // ?: Returns the number of documents
+    .then((numProducts) => {
+      totalItems = numProducts;
+
+      // ?: Returns a promise, so number of documents is first counted and then fetched
+      return (
+        Product.find()
+          // ?: In SQL, skip and limit are replaced by OFFSET and LIMIT respectively. Read more on sequelize docs
+          // ?: If on page 1, get first 2 items (skip 0). If on page 2, get next 2 items (skip 2) ...
+          .skip((page - 1) * ITEMS_PER_PAGE)
+          .limit(ITEMS_PER_PAGE)
+      );
+    })
     .then((products) => {
       res.render("shop/index", {
         prods: products,
         pageTitle: "Shop",
         path: "/",
+        currentPage: page,
+        hasNextPage: ITEMS_PER_PAGE * page < totalItems,
+        hasPreviousPage: page > 1,
+        nextPage: page + 1,
+        previousPage: page - 1,
+        lastPage: Math.ceil(totalItems / ITEMS_PER_PAGE),
         // csrfToken: req.csrfToken(), // ?: No need is it is applied to all requests in app.js
       });
     })
     .catch((err) => {
-      console.log(err);
-      const error = new Error(err);
-      error.httpStatusCode = 500;
+      console.log("Error" + err);
       return next(error);
     });
 };
 
 exports.getCart = (req, res, next) => {
-  if (!req.user) {
-    res.render("shop/cart", {
-      path: "/cart",
-      pageTitle: "Your Cart",
-      products: [],
-    });
-  }
-
-// TODO: Figure out how this works!! 
+  // TODO: Figure out how this works!!
   req.user // ?: req.user is the current user object
     .populate("cart.items.productId")
     .execPopulate()
@@ -123,7 +159,7 @@ exports.postCartDeleteProduct = (req, res, next) => {
     });
 };
 
-exports.postOrder = (req, res, next) => {
+exports.getCheckoutSuccess = (req, res, next) => {
   req.user
     .populate("cart.items.productId")
     .execPopulate()
@@ -207,7 +243,8 @@ exports.getInvoice = (req, res, next) => {
       pdfDoc.pipe(fs.createWriteStream(invoicePath));
       pdfDoc.pipe(res);
 
-      pdfDoc.fontSize(26).text("Invoice", { // ?: Writes onto the file
+      pdfDoc.fontSize(26).text("Invoice", {
+        // ?: Writes onto the file
         underline: true,
       });
       pdfDoc.text("--------------");
@@ -215,7 +252,7 @@ exports.getInvoice = (req, res, next) => {
       order.products.forEach((prod) => {
         const price = prod.quantity * prod.productData.price;
         totalPrice += price;
-        
+
         pdfDoc
           .fontSize(14)
           .text(`${prod.productData.title} x $${prod.quantity} = $${price}`);
@@ -247,5 +284,53 @@ exports.getInvoice = (req, res, next) => {
     .catch((err) => {
       console.error(err);
       next(err);
+    });
+};
+
+exports.getCheckout = (req, res, next) => {
+  let products;
+  let totalSum = 0;
+
+  // TODO: Figure out how this works!!
+  req.user // ?: req.user is the current user object
+    .populate("cart.items.productId") // ?: populate gets data from another collection(products)
+    .execPopulate()
+    .then((user) => {
+      products = user.cart.items;
+
+      products.forEach((prod) => {
+        totalSum += prod.quantity * prod.productId.price; // ?: With the relationship in mongodb, can query products collection
+      });
+
+      return stripe.checkout.sessions.create({
+        payment_method_types: ['card'],
+        line_items: products.map(p => { // ?: this will return an array of objects
+          return { 
+            name: p.productId.title,
+            description: p.productId.description,
+            amount: p.productId.price * 100,
+            currency: 'usd',
+            quantity: p.quantity
+          }
+        }),
+        success_url: req.protocol + '://' + req.get('host') + '/checkout/success', // ?: Url of the domain + /checkout/success
+        cancel_url: req.protocol + '://' + req.get('host') + '/checkout/cancel',
+      });
+    })
+    .then((session) => {
+      res.render("shop/checkout", {
+        path: "/checkout",
+        pageTitle: "Checkout",
+        products: products,
+        totalSum,
+        pk: process.env.STRIPE_PK,
+        sessionId: session.id,
+      });
+    })
+    .catch((err) => {
+      console.log(err);
+      const error = new Error(err);
+      error.httpStatusCode = 500;
+      return next(error);
     });
 };
