@@ -13,7 +13,7 @@ const multer = require("multer");
 const { v4: uuidv4 } = require("uuid");
 const helmet = require("helmet");
 const compression = require("compression");
-const morgan = require("morgan");
+// const morgan = require("morgan");
 
 const errorController = require("./controllers/error");
 const User = require("./models/user");
@@ -60,13 +60,13 @@ const shopRoutes = require("./routes/shop");
 const authRoutes = require("./routes/auth");
 
 // ?: Allows you to write the data into a separate file
-const accessLogStream = fs.createWriteStream(
-  path.join(__dirname, "access.log"),
-  { flags: "a" }
-);
+// const accessLogStream = fs.createWriteStream(
+//   path.join(__dirname, "access.log"),
+//   { flags: "a" }
+// );
 
 // !: Middlewares
-app.use(morgan("combined", { stream: accessLogStream })); // ?: Allows you to log requests
+// app.use(morgan("combined", { stream: accessLogStream })); // ?: Allows you to log requests
 app.use(helmet());
 app.use(compression());
 app.use(bodyParser.urlencoded({ extended: false })); // ?: bodyParser parses post requests
@@ -139,7 +139,7 @@ mongoose
     useUnifiedTopology: true,
   })
   .then((result) => {
-    app.listen(4000);
+    app.listen(process.env.PORT || 4000);
   })
   .catch((err) => {
     console.log(err);
