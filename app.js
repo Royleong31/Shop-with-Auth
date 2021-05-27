@@ -67,7 +67,7 @@ const authRoutes = require("./routes/auth");
 
 // !: Middlewares
 // app.use(morgan("combined", { stream: accessLogStream })); // ?: Allows you to log requests
-app.use(helmet());
+// app.use(helmet()); // ?:: Removing helmet prevents an error when executing inline scripts
 app.use(compression());
 app.use(bodyParser.urlencoded({ extended: false })); // ?: bodyParser parses post requests
 app.use(
